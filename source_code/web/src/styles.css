@@ -1,0 +1,38 @@
+hr {
+    border: 0.8px solid #999; /* Border color */
+    margin: 20px 0; /* Margin top and bottom */
+    }
+
+
+.navbar-container {
+    display: flex;
+    justify-content: flex-end;
+    position:relative;
+    top: 10px;
+    }
+
+ul.navbar {
+    display: flex;
+	list-style-type: none;
+	margin: 0;
+	padding: 0;
+	overflow: hidden;
+  }
+
+ul.navbar li a {
+    display: block;
+    color: gray; /* Set default text color */
+    text-align: center;
+    padding: 12px 12px;
+    text-decoration: none;
+    }
+
+ul.navbar li a:hover {
+    color: rgb(92, 119, 226);
+    }
+
+/* CSS for the selected page */
+ul.navbar li a.active {
+    color: rgb(92, 119, 226);
+    font-weight: 600;
+    }
