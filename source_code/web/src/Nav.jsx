@@ -17,6 +17,7 @@ function Nav() {
                 
                 <ul class="navbar">
                     <li><NavLink to = "/">Home</NavLink></li>
+                    <li><NavLink to = "/comic-search">Comic Search</NavLink></li>
                     <li><NavLink to = {isLoggedIn()? "/account": "/login"} >{isLoggedIn()? "My Account": "Login"}</NavLink></li>
                 </ul>
             
