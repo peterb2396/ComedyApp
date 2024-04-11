@@ -1,42 +1,175 @@
 import { useState, useEffect } from "react";
-import axios from 'axios';
-import ComedianListing from "./ComedianListing";
+import axios from 'axios'
 
 function ComicSearch(props) {
     const [zip, setZip] = useState("");
-    const [location, setLocation] = useState("");
-    const [statusMsg, setStatusMsg] = useState("Please enter your zip");
+    // const [radius, setRadius] = useState("");
     const [buttonDisabled, setButtonDisabled] = useState(true);
     const [showList, setShowList] = useState(false);
 
-    const [loaded, setLoaded] = useState(false) // Wait to load the page until we know which page to load, otherwise it will flash
+    const [statusMsg, setStatusMsg] = useState("")
+    const [location, setLocation] = useState("")
+    const [loaded, setLoaded] = useState(false)
 
+    // store the comedians
+    const [comics, setComics] = useState([])
     const [filteredComics, setFilteredComics] = useState([])
-    const [comics, setComics] = useState([]) // List of comedian components
-    const [ignoreRadius, setIgnoreRadius] = useState(false) // only return comedians in the distance range
+    const [ignoreRadius, setIgnoreRadius] = useState(false)
     const [filter, setFilter] = useState("0")
+    
 
-
-    // First render: load comics if a location is stored
+    // First load (useEffect): load stored location & radius
+    // if stored, load(false)
+    // otherwise, do nothing (renders location entry page)
     useEffect(() => {
         const stored_location = JSON.parse(localStorage.getItem('location'))
         if (stored_location)
         {
-            setLocation(stored_location)    // load the location from last time
-            setStatusMsg(`Searching near ${stored_location[2]}`) // set status message
-            setZip(stored_location[3]) // Store the zip locally
-            load()         // load the comics using prev location
+            setLocation(stored_location)
+            setStatusMsg(`Searching near ${stored_location[2]}`) // [0]: lat, [1]: lon, [2]: 'Farmingville NY 11738'
+            setZip(stored_location[3])
+            load()
         }
-            
         setLoaded(true)
-        // eslint-disable-next-line
+
+
+
     }, [])
 
-    // Load helpers for calculating distance to comics
+    // filter comedians by user's choices
+    function filterComics(newfilter, newignoredistance, comics_in, loc_in)
+    {
+        if (!comics_in)
+            comics_in = comics
+
+        if (!loc_in)
+            loc_in = location
+
+        // calculate distances to each comic
+        comics_in.forEach(comedian => {
+            const distance = calculateDistance(loc_in[0], loc_in[1], comedian.lat, comedian.lon)
+            const max_distance = comedian.radius
+
+            comedian.distance = distance.toFixed(1)
+            comedian.nearby = distance <= max_distance
+        })
+
+        let matchingComedians = comics_in.slice();
+
+        // do we want to change the ignore radius option
+        if (newignoredistance !== null)
+        {
+            // we are changing the option to respect distance
+            setIgnoreRadius(newignoredistance)
+            // filter comedians
+            if (!newignoredistance)
+            {
+                matchingComedians = comics_in.filter(comedian => {
+                    return comedian.nearby
+                })
+            }
+        }
+
+        if (newfilter !== null)
+        {
+            setFilter(newfilter)
+            // store filter as cookie
+        }
+
+        setFilteredComics(matchingComedians)
+    }
+
+    function load(newzip)
+    {
+        // if update is true, use api to get location data
+            // set location value in local storage
+        if (newzip)
+        {
+            setStatusMsg("Loading...")
+            setButtonDisabled(true)
+        
+            // convert zip to coordinats
+            axios.post(`${props.host}/zip-to-loc`, {zip: newzip})
+            .then((loc_res) => {
+                setLocation(loc_res.data)
+                localStorage.setItem('location', JSON.stringify(loc_res.data)) // store the result as a cookie for next time
+                setStatusMsg(`Searching near ${loc_res.data[2]}`)
+
+                axios.get(`${props.host}/find`)
+                .then((comic_res) => {
+                    setComics(comic_res.data)
+                    filterComics(filter, ignoreRadius, comic_res.data, stored_location)
+                })
+                .catch((e) => {
+                    console.log("error",e)
+                })
+            })
+            .catch((e) => {
+                console.log("error",e) //shows up in f12 on the web
+                
+            })
+        }
+        else
+        {
+            const stored_location = JSON.parse(localStorage.getItem('location'))
+            if (!location)
+                setLocation(stored_location)
+
+            axios.post(`${props.host}/zip-to-loc`, {zip: newzip})
+            .then((loc_res) => {
+                setLocation(loc_res.data)
+                localStorage.setItem('location', JSON.stringify(loc_res.data)) // store the result as a cookie for next time
+                setStatusMsg(`Searching near ${loc_res.data[2]}`)
+
+                axios.get(`${props.host}/find`)
+                .then((comic_res) => {
+                    setComics(comic_res.data)
+                    filterComics(filter, ignoreRadius, comic_res.data, stored_location)
+                })
+                .catch((e) => {
+                    console.log("error",e)
+                })
+            })
+            .catch((e) => {
+                console.log("error",e) //shows up in f12 on the web
+                
+            })
+
+        }
+        
+        
+
+        setShowList(true) // show the comedian list, we're ready to display comedians
+    }
+
+
+    // User changes the zip code
+    const handleZipChange = (event) => {
+        const newZip = event.target.value;
+        setZip(newZip);
+        validateInputs(newZip);
+    };
+
+    // User changes the radius
+    // const handleRadiusChange = (event) => {
+    //     const newRadius = event.target.value;
+    //     setRadius(newRadius);
+    //     validateInputs(zip, newRadius);
+    // };
+
+    // Ensure the inputs are valid before allowing submission
+    const validateInputs = (zipValue) => {
+        const isZipValid = /^\d+$/.test(zipValue) && parseInt(zipValue, 10) > 0 && zipValue.length === 5;
+        //const isRadiusValid = /^\d+$/.test(radiusValue) && parseInt(radiusValue, 10) > 0;
+        setButtonDisabled(!(isZipValid )); // && isRadiusValid
+    };
+
+    // Converts degrees for radians, used for distance calculations (helper)
     function deg2rad(deg) {
         return deg * (Math.PI / 180);
     }
     
+    // Find distance between two coordinate points (venue and comedian)
     function calculateDistance(lat1, lon1, lat2, lon2) {
         const R = 3958.8; // Earth's radius in miles
         const dLat = deg2rad(lat2 - lat1);
@@ -50,134 +183,6 @@ function ComicSearch(props) {
         return distance;
     }
 
-    function filterComics(newfilter, newignoredistance, comics_in, loc_in) {
-
-        if (!comics_in)
-            comics_in = comics // if not specified, use state value
-
-        if (!loc_in)
-            loc_in = location  // if not specified, use state value
-
-        // Calculate distances to each comic
-        comics_in.forEach(comedian => {
-            const distance = calculateDistance(loc_in[0], loc_in[1], comedian.lat, comedian.lon);
-            const max_distance = comedian.radius;
-
-            comedian.distance = distance.toFixed(1)     // store distance to display it
-            comedian.nearby = distance <= max_distance; // store whether they're close by
-        });
-
-        let matchingComedians = comics_in.slice(); // Create a copy of the comics array
-        
-    
-        // Want to change the radius option
-        if (newignoredistance !== null) {
-            
-            setIgnoreRadius(newignoredistance); // Update the state value (to change the button)
-            
-            // Filter out comedians who don't match the travel distance
-            if (!newignoredistance) {
-                
-                // Filter comedians within radius
-                matchingComedians = comics_in.filter(comedian => {
-                    return comedian.nearby;
-                });
-                
-            }
-            
-        }
-    
-        // Change the filter (use matchingComedians)
-        if (newfilter !== null) {
-            // Add logic to handle filter change
-            setFilter(newfilter)
-        }
-    
-        setFilteredComics(matchingComedians);
-    }
-    
-    // refresh comedians and filter. Optionally, provide a new search origin
-    function load(newzip)
-    {// if update is true, use api to get location data
-            // set location value in local storage
-        if (newzip)
-        {
-            setStatusMsg("Loading...") // update status when they click the search button
-            setButtonDisabled(true)
-            
-            // Try to parse zip code to coordinates
-            axios.post(`${props.host}/zip-to-loc`, {zip: newzip})
-            .then((res1) => {
-                setLocation(res1.data)
-                localStorage.setItem('location', JSON.stringify(res1.data)) // save this location for next time
-                setStatusMsg(`Searching near ${res1.data[2]}`)
-                
-                // Find and sort comedians once we know where our location is
-                axios.get(`${props.host}/find`)
-                .then((res2) => {
-                    // Store the comedian documents in an array: Projected server side to hide password, uid, etc
-                    setComics(res2.data) 
-                    // Apply the stored filters
-                    filterComics(filter, ignoreRadius, res2.data, res1.data)
-                })
-                .catch((e) => {
-                    console.log("error", e)
-                    // internal error: is the server down?
-                })
-            })
-            .catch((e) => {
-                setZip("") // reset zip because it was problematic
-                setStatusMsg("Error locating!") // Display error message
-            })
-        }
-        else
-        {
-            const stored_location = JSON.parse(localStorage.getItem('location'))
-            // else, load it from local storage
-            if (!location)
-                setLocation(stored_location)
-
-            // reach api/find , providing the coordinates
-            axios.get(`${props.host}/find`)
-            .then((res) => {
-                // Store the comedian documents in an array: Projected server side to hide password, uid, etc
-                setComics(res.data) 
-                // Apply the stored filters
-                filterComics(filter, ignoreRadius, res.data, stored_location)
-            })
-            .catch((e) => {
-                console.log("error", e)
-                // internal error: is the server down?
-            })
-        }
-        
-
-        setShowList(true) // show the comedian list, we're ready to display comedians
-    }
-
-
-    // User changes the zip code
-    const handleZipChange = (event) => {
-        const newZip = event.target.value;
-        setZip(newZip); // Show the update in the input boxes
-        const isZipValid = validateInputs(newZip); // Check if its valid
-        if (!showList)
-            // Allow / disallow go button, if on the landing page
-            setButtonDisabled(!(isZipValid )); 
-        else if (isZipValid)
-            // If we're on the search page, and it's valid, refresh
-            load(newZip)
-    };
-
-
-
-    // Ensure the inputs are valid before allowing submission
-    const validateInputs = (zipValue) => {
-        return /^\d+$/.test(zipValue) && parseInt(zipValue, 10) > 0 && zipValue.length === 5;
-        //const isRadiusValid = /^\d+$/.test(radiusValue) && parseInt(radiusValue, 10) > 0;
-    };
-
-
 
 
 
@@ -185,90 +190,17 @@ function ComicSearch(props) {
      * The visuals begin here
      */
 
-    // Wait until the data is loaded 
+    // Wait until the data is loaded before choosing which screen to show (prompt vs list)
     if (loaded)
     {
         // Show comedian list if we specified a location
         if (showList && location)
         {
-            return (
-                // The main container
-                <div style = {{display: "flex", paddingLeft: "10px", paddingRight: "10px"}}>
-
-                    {/* Info header, with location and filters. Will also display selected comic*/}
-                    <div style = {{backgroundColor: "white",  border:"1px solid #e8e8e8", borderRadius: "8px", height: "85vh", width: "40%"}}>
-                        <p style = {{padding: "10px", fontWeight: "100", textAlign: "center"}}>{statusMsg}</p>
-                        <hr style = {{marginTop: "-20px"}}></hr>
-
-                        {/* Side by side container */}
-                        <div style = {{display: "flex", justifyContent: "space-evenly"}}>
-
-                            <div class="form-floating mb-3" style = {{width: "40%"}}>
-                                <input type="text" class="form-control" id="updateZip" value={zip} onChange={handleZipChange} maxLength="5"/>
-                                <label for="updateZip">Update zip</label>
-                            </div>
-
-                            <div class="form-floating" style = {{width: "40%"}}>
-                                <select class="form-select" id="updateFilters" onChange={(e) => filterComics(e.target.value)} value={filter}>
-                                    <option selected>None</option>
-                                    <option value="1">Ratings</option>
-                                    <option value="2">Bookmarked</option>
-                                    <option value="3">Distance</option>
-                                </select>
-                                <label for="updateFilters">Sort by</label>
-                            </div>
-
-                        </div>
-                        
-                        <div style = {{paddingLeft: "10px", paddingRight: "10px"}}>
-                            {/* Switch for respecting distance */}
-                            <div style = {{display: "flex", justifyContent: "space-between"}}>
-                                <p>Show comedians out of range</p>
-
-                                <div class="form-check form-switch" >
-                                    <input class="form-check-input" type="checkbox" role="switch" id="flexSwitchCheckDefault" onChange={() => filterComics(null, !ignoreRadius)} value={ignoreRadius}/>
-                                </div>
-
-                                
-                                
-                            </div>
-                        </div>
-
-                    </div>
-
-                    {/* Comedian Results */}
-                    <div style={{ display: "flex", width: "100%", flexDirection: "column"}}>
-                        {/* Header (with labels) */}
-                        <div style={{
-                            display: "grid",
-                            gridTemplateColumns: '27% 17% 20% 12% 13% 10%',
-                            alignContent: "center",
-                    
-                            backgroundColor: "white",  
-                            border:"1px solid #e8e8e8", 
-                            borderRadius: "8px", 
-                            marginLeft: "10px",
-                            marginBottom: "5px",
-                            padding: "10px",
-                            height: "30px",
-                            width: "100%",
-                            }}>
-                            <p style = {{textAlign: 'left', margin: 0}}>Comedian</p>
-                            <p style = {{textAlign: 'left', margin: 0}}>Rating</p>
-                            <p style = {{textAlign: 'left', margin: 0}}>Town</p>
-                            <p style = {{textAlign: 'left', margin: 0}}>Distance</p>
-                            <p style = {{textAlign: 'center', margin: 0}}>Will Travel</p>
-                            <p style = {{ textAlign: 'right', margin: 0 }}>Bookmark</p>
-                        </div>
-
-                        {filteredComics.map((comic, i) => ( // Map each comedian to a comedian component
-                            <ComedianListing key={i} comic={comic} />
-                        ))}
-                    </div>
-            </div>)
+            
         }
+        // We don't have a location stored. Ask for it!
         return (
-            // Main centered content
+            // Page asking venue for their zip code ( this div centers everythng within it on the screen )
             <div style = {{display: "flex", marginTop: "25vh", alignItems: "center", flexDirection: "column"}}>
 
                 <div style = {{backgroundColor: "white",  border:"1px solid #e8e8e8", borderRadius: "8px", padding: "3px"}}>
@@ -305,5 +237,4 @@ function ComicSearch(props) {
         )
     }
 }
-
 export default ComicSearch;
