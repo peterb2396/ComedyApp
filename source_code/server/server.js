@@ -43,6 +43,8 @@ app.get('/find', async (req, res) => {
   try {
     // Search for comedians, or for users
     const comics = await Comedian.find({ broadcast: true }, 'name lat lon radius town rating'); 
+
+    
     
     res.json(comics);
 
