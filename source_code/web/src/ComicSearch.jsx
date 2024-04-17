@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from 'axios';
-// import ComedianListing from "./ComedianListing";
+import ComedianListing from "./ComedianListing";
 
 function ComicSearch(props) {
     const [zip, setZip] = useState("");
@@ -36,12 +36,11 @@ function ComicSearch(props) {
         // eslint-disable-next-line
     }, [])
 
-    // Filter comedians when travel direction changes (re calculates distances)
+    // Filter comedians when travel direction changes (re calculates distances) or when distance changes
     // should we add all filter options to this dependency array?
     useEffect(() => {
         filterComics()
-        // eslint-disable-next-line
-    }, [userTraveling])
+    }, [userTraveling, radius])
 
     // Load helpers for calculating distance to comics
     function deg2rad(deg) {
@@ -70,7 +69,7 @@ function ComicSearch(props) {
             loc_in = location  // if not specified, use state value
 
         // Calculate distances to each comic
-        comics.forEach(comedian => {
+        comics_in.forEach(comedian => {
             const distance = calculateDistance(loc_in[0], loc_in[1], comedian.lat, comedian.lon);
             const max_distance = userTraveling? radius : comedian.radius; // whose radius to respect?
     
@@ -97,6 +96,7 @@ function ComicSearch(props) {
             }
             
         }
+        
     
         // Change the filter (use matchingComedians)
         if (newfilter !== null) {
@@ -153,6 +153,7 @@ function ComicSearch(props) {
             .then((res) => {
                 // Store the comedian documents in an array: Projected server side to hide password, uid, etc
                 setComics(res.data) 
+                
                 // Apply the stored filters
                 filterComics(filter, ignoreRadius, res.data, stored_location)
             })
@@ -234,6 +235,48 @@ function ComicSearch(props) {
                         </div>
 
                         {/* pick up here to do switch and comic results */}
+                        <div style = {{paddingLeft: "10px", paddingRight: "10px"}}>
+                            <div style = {{display: "flex", justifyContent: "space-between"}}>
+                                <p>Show comedians out of range</p>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type = "checkbox" role="switch"
+                                    onChange={() => filterComics(null, !ignoreRadius)} value={ignoreRadius}></input>
+                                </div>
+
+                            </div>
+
+                        </div>
+                        
+                    </div>
+
+                    {/* Comedian Results */}
+                    <div style = {{display: "flex", width: "100%", flexDirection: "column"}}>
+                        {/* Header with labels */}
+                        <div style={{
+                            display: "grid",
+                            gridTemplateColumns: '27% 17% 20% 12% 13% 10%',
+                            alignContent: "center",
+                    
+                            backgroundColor: "white",  
+                            border:"1px solid #e8e8e8", 
+                            borderRadius: "8px", 
+                            marginLeft: "10px",
+                            marginBottom: "5px",
+                            padding: "10px",
+                            height: "30px",
+                            width: "100%",
+                            }}>
+                            <p style = {{textAlign: 'left', margin: 0}}>Comedian</p>
+                            <p style = {{textAlign: 'left', margin: 0}}>Rating</p>
+                            <p style = {{textAlign: 'left', margin: 0}}>Town</p>
+                            <p style = {{textAlign: 'left', margin: 0}}>Distance</p>
+                            <p style = {{textAlign: 'center', margin: 0}}>Will Travel</p>
+                            <p style = {{ textAlign: 'right', margin: 0 }}>Bookmark</p>
+                        </div>
+                        
+                        {filteredComics.map((comic, i) => (
+                            <ComedianListing comic = {comic} key = {i}></ComedianListing>
+                        ))}
 
                     </div>
 

@@ -39,6 +39,7 @@ app.get('/', function(req, res) {
 
 // Get all comedians or users in range
 app.get('/find', async (req, res) => {
+  
 
   try {
     // Search for comedians, or for users
