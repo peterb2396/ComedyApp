@@ -38,15 +38,38 @@ app.get('/', function(req, res) {
 });
 
 // Get all comedians or users in range
-app.get('/find', async (req, res) => {
+app.post('/find', async (req, res) => {
   
-
   try {
     // Search for comedians, or for users
-    const comics = await Comedian.find({ broadcast: true }, 'name lat lon radius town rating hosting traveling'); 
+    let comics = await Comedian.find({ broadcast: true }, 'name lat lon radius town rating hosting traveling'); 
 
     
+    function deg2rad(deg) {
+      return deg * (Math.PI / 180);
+    }
     
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 3958.8; // Earth's radius in miles
+        const dLat = deg2rad(lat2 - lat1);
+        const dLon = deg2rad(lon2 - lon1);
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distance = R * c; // Distance in miles
+        return distance;
+    }
+
+
+    // Store the distances so we can view the distanct to each comic from the new location
+    comics = comics.filter(comedian => {
+        const distance = calculateDistance(req.body.lat, req.body.lon, comedian.lat, comedian.lon);
+        return distance <= req.body.radius
+        
+    });
+
     res.json(comics);
 
   } catch (error) {

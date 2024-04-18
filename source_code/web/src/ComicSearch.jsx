@@ -4,11 +4,16 @@ import ComedianListing from "./ComedianListing";
 
 function ComicSearch(props) {
 
+    // State management is setup in such a way that responds to any option changes, saves the options to disk,
+    // filters the comedians if necessary, which triggers a re-ordering (sorting) when any filter or sort change occurs.
     const [zip, setZip] = useState("");                 // only changes once validated
     const [zipField, setZipField] = useState("");       // for visuals
 
     const [radius, setRadius] = useState(30);           // only changes once validated
     const [radiusField, setRadiusField] = useState(30); // for visuals
+
+    const [searchRadius, setSearchRadius] = useState(100);           // only changes once validated
+    const [searchRadiusField, setSearchRadiusField] = useState(30); // for visuals
 
     const [userTraveling, setUserTraveling] = useState(true);
 
@@ -40,6 +45,8 @@ function ComicSearch(props) {
                 setIgnoreRadius(stored_filters.ignoreRadius)
                 setUserTraveling(stored_filters.userTraveling)
                 setRadius(stored_filters.radius)
+                setSearchRadius(stored_filters.searchRadius)
+                setSearchRadiusField(stored_filters.searchRadius)
                 setRadiusField(stored_filters.radius)
             }
 
@@ -112,7 +119,7 @@ function ComicSearch(props) {
     // Changed zip, display current location - will trigger above location change to recalculate and filter
     useEffect(() => {
         // Only refresh location if we entered a different location
-        if (zip && zip !== location[3])
+        if (zip && (zip !== location[3] || !location))
         {
             setStatusMsg("Loading...") // update status when they click the search button
             setButtonDisabled(true)
@@ -123,6 +130,9 @@ function ComicSearch(props) {
                 setLocation(res.data)
                 localStorage.setItem('location', JSON.stringify(res.data)) // save this location for next time
                 setStatusMsg(`Searching near ${res.data[2]}`)
+
+                // Search near the new area (refresh)
+                load()
                 
             })
             .catch((e) => {
@@ -131,7 +141,7 @@ function ComicSearch(props) {
                 setStatusMsg("Error locating!") // Display error message
             })
         }
-        
+        //eslint-disable-next-line
     }, [zip, props.host, location])
 
     
@@ -145,25 +155,43 @@ function ComicSearch(props) {
 
 
     useEffect(() => {
+        
         // Store preferences whenever they change.
-        if (loaded) // ensures we don't modify local storage WHILE reading data from it. We read data in loading stage.
+
+        if (loaded && showList) // ensures we don't modify local storage WHILE reading data from it. We read data in loading stage.
         {
-            localStorage.setItem('filters', JSON.stringify({sort: sort, ignoreRadius: ignoreRadius, userTraveling: userTraveling, radius: radius}))
+            // Get previous value of searchRadius to see if it changed
+            let prevRad = JSON.parse(localStorage.getItem('filters'))?.searchRadius
+
+            localStorage.setItem('filters', JSON.stringify({sort: sort, ignoreRadius: ignoreRadius, userTraveling: userTraveling, radius: radius, searchRadius: searchRadius}))
+            // If search radius changed, regenerate the search
+            if (prevRad !== searchRadius)
+            {
+                load()
+            }
         }
-        
-        
-    }, [ignoreRadius, radius, sort, userTraveling, loaded])
+        //eslint-disable-next-line
+    }, [ignoreRadius, radius, sort, userTraveling, loaded, searchRadius])
+
+    
     
     // refresh comedians and filter. Filter is implicit, because it executes through the useEffect on comics
+    // load is like a refresh, it is location agnostic. We load results and let the user determine if loc is sufficient.
+    // Should we go back to a location centric loading? We don't want comics across the country.
+    // Perhaps two radii: Travel radius, and search radius. Search radius will go to the server
+    // This is a good solution. Add parameters for radius and location, post request to find. Filter out of range on server.
+    // Change search UI to 2x2 instead of 1x3, with radius options on the bottom.
     function load()
     {
+        console.log("refreshing")
         const stored_location = JSON.parse(localStorage.getItem('location'))
+        const stored_filters = JSON.parse(localStorage.getItem('filters'))
         // else, load it from local storage
         if (!location)
             setLocation(stored_location)
 
         // reach api/find , providing the coordinates
-        axios.get(`${props.host}/find`)
+        axios.post(`${props.host}/find`, {lat: stored_location[0], lon: stored_location[1], radius: stored_filters? stored_filters.searchRadius : searchRadius})
         .then((res) => {
             // Store the comedian documents in an array: Projected server side to hide password, uid, etc
             setComics(res.data) 
@@ -186,20 +214,47 @@ function ComicSearch(props) {
         if (!showList)
             // Allow / disallow go button, if on the landing page
             setButtonDisabled(!(isValid )); 
-        else if (isValid)
-            // If we're on the search page, and it's valid, refresh (by changing zip)
-            {
-                setZip(newZip)
-            }
+        else if (isValid) // remove else to auto-search on lading page (making GO irrelevant)
+        // If we're on the search page, and it's valid, refresh (by changing zip)
+        {
+            setZip(newZip)
+        }
     };
 
-    // User changes the radius
+    // User changes the travel radius
     const handleRadiusChange = (event) => {
         const newRad = event.target.value;
         setRadiusField(newRad); // Show the update in the input boxes
         if(validateInputs(zip, newRad)) // Check if its valid
             setRadius(newRad)
+        
     };
+
+    const submitRadiusChange = (event) => {
+        const newRad = event.target.value;
+        if(validateInputs(zip, newRad)) // Check if its valid
+            setSearchRadius(newRad)
+    }
+
+     // User changes the search radius
+     const handleSearchRadiusChange = (event) => {
+        const newRad = event.target.value;
+        setSearchRadiusField(newRad); // Show the update in the input boxes
+        
+    };
+
+    // when pressing go, set the zip if its valid to initalize the search
+    function beginSearch()
+    {
+        const isValid = validateInputs(zipField, searchRadius); // Check if its valid
+
+        setButtonDisabled(!(isValid )); 
+        if (isValid) // remove else to auto-search on lading page (making GO irrelevant)
+        // If we're on the search page, and it's valid, refresh (by changing zip)
+        {
+            setZip(zipField)
+        }
+    }
 
 
 
@@ -233,19 +288,14 @@ function ComicSearch(props) {
                         <hr style = {{marginTop: "-20px"}}></hr>
 
                         <div style = {{display: "flex", justifyContent: "space-evenly"}}>
-                            <div class = "form-floating mb-3" style = {{width: "30%"}}>
+                            <div class = "form-floating mb-3" style = {{width: "40%"}}>
                                 <input type = "text" class = "form-control" id = "updateZip" value = {zipField}
                                 onChange={handleZipChange} maxLength="5"></input>
                                 <label for = "updateZip">My zip</label>
                             </div>
 
-                            <div class = "form-floating mb-3" style = {{width: "30%"}}>
-                                <input type = "text" class = "form-control" id = "updateRadius" value = {radiusField}
-                                onChange={handleRadiusChange} maxLength="4" disabled = {!userTraveling}></input>
-                                <label for = "updateRadius">My travel radius</label>
-                            </div>
 
-                            <div class = "form-floating" style = {{width: "30%"}}>
+                            <div class = "form-floating" style = {{width: "40%"}}>
                                 <select class = "form-select" id="updateSort" onChange={(e) => {
                                     setSort(e.target.value)
                                 }} value = {sort}>
@@ -258,6 +308,21 @@ function ComicSearch(props) {
 
                             </div>
 
+                        </div>
+
+                        {/* Radius container */}
+                        <div style = {{display: "flex", justifyContent: "space-evenly"}}>
+                            <div class = "form-floating mb-3" style = {{width: "40%"}}>
+                                <input type = "text" class = "form-control" id = "updateSearchRadius" value = {searchRadiusField}
+                                onChange={handleSearchRadiusChange} maxLength="4" onBlur={submitRadiusChange}></input>
+                                <label for = "updateSearchRadius">Search radius</label>
+                            </div>
+
+                            <div class = "form-floating mb-3" style = {{width: "40%"}}>
+                                <input type = "text" class = "form-control" id = "updateRadius" value = {radiusField}
+                                onChange={handleRadiusChange} maxLength="4" disabled = {!userTraveling}></input>
+                                <label for = "updateRadius">My travel radius</label>
+                            </div>
                         </div>
 
                         {/* pick up here to do switch and comic results */}
@@ -351,7 +416,7 @@ function ComicSearch(props) {
                             class="btn btn-outline-primary" 
                             style = {{margin:"5px", width: "50px"}}
                             disabled={buttonDisabled}
-                            onClick={() => load()} // Load comedians when we hit go, location-agnostic now.
+                            onClick={() => beginSearch()} // Load comedians when we hit go, location-agnostic now.
                         >Go</button>
 
                     </div>
