@@ -1,0 +1,8 @@
+Remove go button from first zip page? Need to auto-search on entry always (instead of ignoring first, like now)
+
+
+add tabs: "Comedian to me" and "Me to comedian" (default)
+
+
+All sorting / filtering will stay on frontend. Backend will limit results when implementing pagination, and will need page param
+pagination ... eventually. Simple, just only return a range of results from DB. No change in rendering on frontend!

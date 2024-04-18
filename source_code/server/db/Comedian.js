@@ -6,6 +6,8 @@ const comedianSchema = new mongoose.Schema({
     lon: Number,
     radius: Number,
     broadcast: Boolean,
+    traveling: Boolean,
+    hosting: Boolean,
 });
 
 module.exports = mongoose.model('Comedian', comedianSchema);
