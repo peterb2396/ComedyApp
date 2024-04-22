@@ -1,4 +1,3 @@
-Remove go button from first zip page? Need to auto-search on entry always (instead of ignoring first, like now)
 
 
 add tabs: "Comedian to me" and "Me to comedian" (default)
@@ -6,3 +5,25 @@ add tabs: "Comedian to me" and "Me to comedian" (default)
 
 All sorting / filtering will stay on frontend. Backend will limit results when implementing pagination, and will need page param
 pagination ... eventually. Simple, just only return a range of results from DB. No change in rendering on frontend!
+
+Add bookmark feature: database, or local storage? require login?
+Comedian page: View description, video, etc
+Accounts: just for comedians? We would (probably) need accounts for users to leave reviews.
+- We couuuuuld allow anonymous reviews. Less account overhead. More spam reviews. 
+- Make them be logged in to bookmark? Or if logged out, use local storage, if logged in, use db?
+
+Login page: Ask if they are a comedian or a user. Show a different form. Design it so we can show the same form to change account information,
+but gray out the email and password because these cannot be changed. Add forgot password on login
+Login -> credentials or forgot password or signup instead
+Signup -> comedian or user or signup instead
+
+** use bootstrap tabs for comedian / user signup? **
+
+Implement sorting. Arrays.sort.. ?
+Image upload: s3 bucket? nudity api?
+
+
+- dropdown menu
+- experience instead of compatibility
+- image for each comedian (aws s3)
+- calendar system

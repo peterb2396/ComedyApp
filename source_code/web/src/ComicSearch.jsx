@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import axios from 'axios';
 import ComedianListing from "./ComedianListing";
+import DatePicker from "react-datepicker";
+
+import "react-datepicker/dist/react-datepicker.css";
 
 function ComicSearch(props) {
 
@@ -28,6 +31,14 @@ function ComicSearch(props) {
     const [comics, setComics] = useState([]) // List of comedian components
     const [ignoreRadius, setIgnoreRadius] = useState(false) // only return comedians in the distance range
     const [sort, setSort] = useState("0")
+
+    const [startDate, setStartDate] = useState(new Date());
+    const [endDate, setEndDate] = useState(addDays(new Date(), 7));
+    const onChangeDate = (dates) => {
+        const [start, end] = dates;
+        setStartDate(start);
+        setEndDate(end);
+    };
 
 
     // First render: load comics if a location is stored
@@ -243,6 +254,18 @@ function ComicSearch(props) {
         
     };
 
+    function addMonths(date, months) {
+        var d = new Date(date);
+        d.setMonth(d.getMonth() + months);
+        return d;
+    }
+
+    function addDays(date, days) {
+        var result = new Date(date);
+        result.setDate(result.getDate() + days); 
+        return result;
+      }
+
     // when pressing go, set the zip if its valid to initalize the search
     function beginSearch()
     {
@@ -325,8 +348,7 @@ function ComicSearch(props) {
                             </div>
                         </div>
 
-                        {/* pick up here to do switch and comic results */}
-                        <div style = {{paddingLeft: "10px", paddingRight: "10px"}}>
+                        {/* <div style = {{paddingLeft: "10px", paddingRight: "10px"}}>
                             <div style = {{display: "flex", justifyContent: "space-between"}}>
                                 <p>Show incompatible comedians</p>
                                 <div class="form-check form-switch">
@@ -337,9 +359,10 @@ function ComicSearch(props) {
 
                             </div>
 
-                        </div>
+                        </div> */}
 
                         {/* Allow user to switch between traveling and hosting */}
+                        <div></div>
                         <div style = {{paddingLeft: "10px", paddingRight: "10px"}}>
                             <div style = {{display: "flex", justifyContent: "space-between"}}>
                                 <p>I'm hosting the comedian</p>
@@ -352,7 +375,24 @@ function ComicSearch(props) {
                             </div>
 
                         </div>
-                        
+
+                        <div style = {{paddingLeft: "10px", marginTop: "10%", display: userTraveling? "inline-block": "none"}}>
+                                <p>Which date(s) are you looking for?</p>
+                                
+                                <DatePicker
+                                    selected={startDate}
+                                    onChange={onChangeDate}
+                                    minDate={new Date()}
+                                    maxDate={addMonths(new Date(), 5)}
+                                    startDate={startDate}
+                                    endDate={endDate}
+                                    selectsRange
+                                    inline
+                                    showDisabledMonthNavigation
+                                />
+                        </div>
+
+
                     </div>
 
                     {/* Comedian Results */}
@@ -376,7 +416,7 @@ function ComicSearch(props) {
                             <p style = {{textAlign: 'left', margin: 0}}>Rating</p>
                             <p style = {{textAlign: 'left', margin: 0}}>Town</p>
                             <p style = {{textAlign: 'left', margin: 0}}>Distance</p>
-                            <p style = {{textAlign: 'center', margin: 0}}>Compatible</p>
+                            <p style = {{textAlign: 'center', margin: 0}}>Experience</p>
                             <p style = {{ textAlign: 'right', margin: 0 }}>Bookmark</p>
                         </div>
                         
